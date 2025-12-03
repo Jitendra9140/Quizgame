@@ -17,7 +17,8 @@ const app = express();
 // Support a comma-separated list in FRONTEND_URL for multiple origins.
 const rawFrontends =
   process.env.FRONTEND_URL || process.env.VITE_API_BASE_URL || "";
-const allowedOrigins = rawFrontends
+
+  const allowedOrigins = rawFrontends
   .split(",")
   .map((s) => s.trim())
   .filter(Boolean);
@@ -27,6 +28,7 @@ app.use(
     origin: [
       "https://quizgameclump.netlify.app",
       "hhttps://quizgame-u8lq.onrender.com",
+      "http://localhost:5173"
     ],
     credentials: true,
   })
