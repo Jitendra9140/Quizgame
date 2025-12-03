@@ -33,7 +33,7 @@ export default function Matchmaking() {
   
         console.log("[Matchmaking] User is trying to start game via sockets...");
   
-        socket = io(import.meta.env.VITE_API_BASE_URL || "http://localhost:5000", {
+        socket = io(import.meta.env.VITE_SOCKET_URL || "http://localhost:5000", {
           transports: ["websocket"],
           auth: { token },
         });
