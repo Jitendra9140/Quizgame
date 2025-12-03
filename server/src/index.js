@@ -12,7 +12,38 @@ const gameRoutes = require("./routes/game");
 const { Player, Question, Session } = require("./db");
 
 const app = express();
-app.use(cors({ origin: true, credentials: true }));
+
+// Allow list for CORS. Render will set FRONTEND_URL to your deployed frontend URL.
+// Support a comma-separated list in FRONTEND_URL for multiple origins.
+const rawFrontends =
+  process.env.FRONTEND_URL || process.env.VITE_API_BASE_URL || "";
+const allowedOrigins = rawFrontends
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+// Always allow localhost during development
+allowedOrigins.push(
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "http://localhost:5000"
+);
+
+console.log("CORS allowed origins:", allowedOrigins);
+
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      // allow requests with no origin like mobile apps or curl
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.indexOf(origin) !== -1) {
+        return callback(null, true);
+      }
+      return callback(new Error("CORS policy: Origin not allowed"));
+    },
+    credentials: true,
+  })
+);
 app.use(express.json());
 
 app.get("/health", (req, res) => {
@@ -26,7 +57,15 @@ app.use("/api/game", gameRoutes);
 
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: { origin: true, credentials: true },
+  cors: {
+    origin: function (origin, callback) {
+      // socket clients may not send origin; allow when absent for now
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.indexOf(origin) !== -1) return callback(null, true);
+      return callback(new Error("Socket CORS: Origin not allowed"));
+    },
+    credentials: true,
+  },
 });
 
 // Socket auth: expect token in socket.handshake.auth.token or query.token
