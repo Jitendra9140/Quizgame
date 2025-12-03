@@ -23,6 +23,13 @@ export default function App() {
     navigate("/dashboard");
   }
 
+  function onLogout() {
+    setSession(null);
+    setIsAuthenticated(false);
+    localStorage.removeItem("token");
+    navigate("/login");
+  }
+
   useEffect(() => {
     // Check if token exists on mount and fetch user data
     const checkAuth = async () => {
@@ -60,7 +67,7 @@ export default function App() {
             path="/dashboard"
             element={
               isAuthenticated ? (
-                <Dashboard session={session} />
+                <Dashboard session={session} onLogout={onLogout} />
               ) : (
                 <Navigate to="/login" replace />
               )

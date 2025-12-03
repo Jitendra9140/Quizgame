@@ -1,27 +1,39 @@
 import React, { useState } from "react";
 import { signup } from "../api";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 export default function Signup({ onAuth }) {
+  const navigate = useNavigate();
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   async function submit(e) {
     e.preventDefault();
     setError(null);
+    setLoading(true);
 
     if (password !== confirmPassword) {
+      setLoading(false);
       return setError("Passwords do not match");
     }
 
     try {
       const data = await signup({ name, username, password });
-      onAuth?.(data);
+      if (data && data.token) {
+        localStorage.setItem("token", data.token);
+        onAuth?.(data);
+        navigate("/dashboard");
+      } else {
+        throw new Error("Invalid response from server");
+      }
     } catch (err) {
-      setError(err.message);
+      console.error("[SIGNUP] Error:", err);
+      setError(err.message || "Signup failed. Please try again.");
+      setLoading(false);
     }
   }
 
@@ -45,9 +57,10 @@ export default function Signup({ onAuth }) {
             </label>
             <input
               type="text"
-              className="mt-2 w-full border border-slate-300 bg-white/70 backdrop-blur p-3 rounded-xl shadow-sm focus:border-purple-600 focus:ring-2 focus:ring-purple-300 outline-none transition"
+              className="mt-2 w-full border border-slate-300 bg-white/70 backdrop-blur p-3 rounded-xl shadow-sm focus:border-purple-600 focus:ring-2 focus:ring-purple-300 outline-none transition disabled:opacity-50 disabled:cursor-not-allowed"
               value={name}
               onChange={(e) => setName(e.target.value)}
+              disabled={loading}
               required
             />
           </div>
@@ -59,9 +72,10 @@ export default function Signup({ onAuth }) {
             </label>
             <input
               type="text"
-              className="mt-2 w-full border border-slate-300 bg-white/70 backdrop-blur p-3 rounded-xl shadow-sm focus:border-purple-600 focus:ring-2 focus:ring-purple-300 outline-none transition"
+              className="mt-2 w-full border border-slate-300 bg-white/70 backdrop-blur p-3 rounded-xl shadow-sm focus:border-purple-600 focus:ring-2 focus:ring-purple-300 outline-none transition disabled:opacity-50 disabled:cursor-not-allowed"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
+              disabled={loading}
               required
             />
           </div>
@@ -73,9 +87,10 @@ export default function Signup({ onAuth }) {
             </label>
             <input
               type="password"
-              className="mt-2 w-full border border-slate-300 bg-white/70 backdrop-blur p-3 rounded-xl shadow-sm focus:border-purple-600 focus:ring-2 focus:ring-purple-300 outline-none transition"
+              className="mt-2 w-full border border-slate-300 bg-white/70 backdrop-blur p-3 rounded-xl shadow-sm focus:border-purple-600 focus:ring-2 focus:ring-purple-300 outline-none transition disabled:opacity-50 disabled:cursor-not-allowed"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              disabled={loading}
               required
             />
           </div>
@@ -87,22 +102,28 @@ export default function Signup({ onAuth }) {
             </label>
             <input
               type="password"
-              className="mt-2 w-full border border-slate-300 bg-white/70 backdrop-blur p-3 rounded-xl shadow-sm focus:border-purple-600 focus:ring-2 focus:ring-purple-300 outline-none transition"
+              className="mt-2 w-full border border-slate-300 bg-white/70 backdrop-blur p-3 rounded-xl shadow-sm focus:border-purple-600 focus:ring-2 focus:ring-purple-300 outline-none transition disabled:opacity-50 disabled:cursor-not-allowed"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
+              disabled={loading}
               required
             />
           </div>
 
           {/* Error */}
-          {error && <p className="text-red-600 text-sm text-center">{error}</p>}
+          {error && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-xl text-sm text-center">
+              {error}
+            </div>
+          )}
 
           {/* Submit Button */}
           <button
             type="submit"
-            className="w-full bg-purple-600 text-white py-3 rounded-xl text-lg font-semibold shadow-md hover:bg-purple-700 hover:shadow-lg active:scale-95 transition-transform"
+            disabled={loading}
+            className="w-full bg-purple-600 text-white py-3 rounded-xl text-lg font-semibold shadow-md hover:bg-purple-700 hover:shadow-lg active:scale-95 transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Sign Up
+            {loading ? "📝 Signing Up..." : "Sign Up"}
           </button>
         </form>
 

@@ -22,6 +22,19 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+// Handle response errors (e.g., 401 unauthorized)
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      // Token expired or invalid, clear session
+      localStorage.removeItem("token");
+      window.location.href = "/login";
+    }
+    return Promise.reject(error);
+  }
+);
+
 export async function signup({ name, username, password }) {
   try {
     const response = await api.post("/api/auth/signup", {

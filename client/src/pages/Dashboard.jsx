@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { User, Zap, Crown, LogOut } from "lucide-react";
 import { getCurrentUser } from "../api";
 
-export default function Dashboard({ session }) {
+export default function Dashboard({ session, onLogout }) {
   const [player, setPlayer] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -28,8 +28,12 @@ export default function Dashboard({ session }) {
   }, []);
 
   function logout() {
-    localStorage.removeItem("token");
-    window.location.href = "/login";
+    if (onLogout) {
+      onLogout();
+    } else {
+      localStorage.removeItem("token");
+      window.location.href = "/login";
+    }
   }
 
   function startMatchmaking() {
