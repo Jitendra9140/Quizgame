@@ -22,28 +22,16 @@ const allowedOrigins = rawFrontends
   .map((s) => s.trim())
   .filter(Boolean);
 
-// Always allow localhost during development
-allowedOrigins.push(
-  "http://localhost:5173",
-  "http://localhost:3000",
-  "http://localhost:5000"
-);
-
-console.log("CORS allowed origins:", allowedOrigins);
-
 app.use(
   cors({
-    origin: function (origin, callback) {
-      // allow requests with no origin like mobile apps or curl
-      if (!origin) return callback(null, true);
-      if (allowedOrigins.indexOf(origin) !== -1) {
-        return callback(null, true);
-      }
-      return callback(new Error("CORS policy: Origin not allowed"));
-    },
+    origin: [
+      "https://quizgameclump.netlify.app",
+      "hhttps://quizgame-u8lq.onrender.com",
+    ],
     credentials: true,
   })
 );
+
 app.use(express.json());
 
 app.get("/health", (req, res) => {
