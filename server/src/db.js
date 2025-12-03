@@ -40,6 +40,7 @@ const questionSchema = new mongoose.Schema({
   question: { type: String, required: true }, // The actual question text
   options: { type: [String], required: true }, // Array of 4 options
   correctAnswer: { type: String, required: true }, // Correct answer text
+  correctIndex: { type: Number },
   createdAt: { type: Date, default: Date.now },
 });
 
