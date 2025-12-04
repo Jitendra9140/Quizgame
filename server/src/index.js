@@ -23,13 +23,15 @@ const rawFrontends =
   .map((s) => s.trim())
   .filter(Boolean);
 
+// Use unified allowlist for REST CORS as well
 app.use(
   cors({
-    origin: [
-      "https://quizgameclump.netlify.app",
-      "hhttps://quizgame-u8lq.onrender.com",
-      "http://localhost:5173"
-    ],
+    origin: function (origin, callback) {
+      // Allow same set as sockets; when no origin (e.g., curl), allow
+      if (!origin) return callback(null, true);
+      if (socketAllowedOrigins.indexOf(origin) !== -1) return callback(null, true);
+      return callback(new Error("REST CORS: Origin not allowed"));
+    },
     credentials: true,
   })
 );
@@ -46,12 +48,21 @@ app.use("/api/match", matchRoutes);
 app.use("/api/game", gameRoutes);
 
 const server = http.createServer(app);
+// Merge env allowlist with common local/dev origins for Socket.IO
+const socketAllowedOrigins = Array.from(
+  new Set([
+    ...allowedOrigins,
+    "http://localhost:5173",
+    "https://quizgameclump.netlify.app",
+    "https://quizgame-u8lq.onrender.com",
+  ])
+);
 const io = new Server(server, {
   cors: {
     origin: function (origin, callback) {
       // socket clients may not send origin; allow when absent for now
       if (!origin) return callback(null, true);
-      if (allowedOrigins.indexOf(origin) !== -1) return callback(null, true);
+      if (socketAllowedOrigins.indexOf(origin) !== -1) return callback(null, true);
       return callback(new Error("Socket CORS: Origin not allowed"));
     },
     credentials: true,

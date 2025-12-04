@@ -34,14 +34,26 @@ export default function Matchmaking() {
         console.log("[Matchmaking] User is trying to start game via sockets...");
   
         socket = io(import.meta.env.VITE_SOCKET_URL || "http://localhost:5000", {
-          transports: ["websocket"],
+          transports: ["websocket", "polling"],
           auth: { token },
+          reconnection: true,
+          reconnectionAttempts: 5,
+          reconnectionDelay: 1000,
+          withCredentials: true,
+          extraHeaders: {
+            Origin: window.location.origin,
+          },
         });
   
         socket.on("connect", () => {
           console.log("[Socket] connected", socket.id);
           socket.emit("matchmaking:join");
           setStatus("Finding opponent...");
+        });
+
+        socket.on("connect_error", (err) => {
+          console.error("[Socket] connect_error:", err.message);
+          setError(err.message || "Socket connection error");
         });
   
         socket.on("matchmaking:queued", ({ level: lvl, position }) => {
@@ -104,7 +116,7 @@ export default function Matchmaking() {
         socket?.disconnect();
       } catch {}
     };
-  }, [level]);
+  }, []);
 
   const handleCancel = () => {
     window.location.href = "/dashboard";
