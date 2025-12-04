@@ -140,7 +140,7 @@ export default function QuizGame() {
 
     let isCancelled = false;
     let pollCount = 0;
-    const MAX_POLLS = 60; // Poll for up to 30 seconds (60 * 500ms)
+    const MAX_POLLS = 20; // Poll for up to 10 seconds (20 * 500ms)
 
     const pollForResults = async () => {
       if (isCancelled || pollCount >= MAX_POLLS) {
@@ -157,9 +157,9 @@ export default function QuizGame() {
         console.log(`[Game] Polling attempt ${pollCount + 1}/${MAX_POLLS}`);
         const data = await getGameResult(sessionId);
 
-        // Check if both players have finished
-        if (data.bothPlayersFinished) {
-          console.log("[Game] Both players finished! Redirecting to results");
+        // Check if session is completed
+        if (data?.status === "completed") {
+          console.log("[Game] Session completed! Redirecting to results");
           setPollingActive(false);
           window.location.href = "/result";
           return;
