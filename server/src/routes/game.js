@@ -189,78 +189,7 @@ router.get("/result/:sessionId", auth, async (req, res) => {
       p2Outcome = "win";
     }
 
-    // Update player stats ONLY when result is retrieved
-    // If session.statsUpdated has entries it means clients are performing per-player updates.
-    // Only do server-side bulk awarding when no per-player updates have been recorded.
-    if (
-      session.status === "completed" &&
-      !session.statsFinalized &&
-      (!session.statsUpdated || session.statsUpdated.length === 0)
-    ) {
-      console.log(`[GAME RESULT] 🎮 Finalizing stats for session ${sessionId}`);
-      console.log(`[GAME RESULT] P1ID: ${p1Id}, P2ID: ${p2Id}`);
-      console.log(
-        `[GAME RESULT] P1: ${p1.correct}/${p1.total} correct, P2: ${p2.correct}/${p2.total} correct`
-      );
-
-      const p1Player = await Player.findById(p1Id);
-      const p2Player = await Player.findById(p2Id);
-
-      console.log(
-        `[GAME RESULT] P1 Before: XP=${p1Player.xp}, Level=${
-          p1Player.level
-        }, Wins=${p1Player.stats?.wins || 0}`
-      );
-      console.log(
-        `[GAME RESULT] P2 Before: XP=${p2Player.xp}, Level=${
-          p2Player.level
-        }, Wins=${p2Player.stats?.wins || 0}`
-      );
-
-      // Award XP and update stats for player 1
-      const p1Xp = awardXp(p1Player, p1Outcome);
-      p1Player.stats = p1Player.stats || {};
-      p1Player.stats.gamesPlayed = (p1Player.stats.gamesPlayed || 0) + 1;
-      p1Player.stats.avgResponseMs = p1.avgResponseMs || 0;
-      if (p1Outcome === "win") {
-        p1Player.stats.wins = (p1Player.stats.wins || 0) + 1;
-      }
-      await p1Player.save();
-      console.log(
-        `[GAME RESULT] ✅ P1 After: XP=${p1Player.xp} (+${p1Xp}), Level=${p1Player.level}, Outcome=${p1Outcome}, Wins=${p1Player.stats.wins}, GamesPlayed=${p1Player.stats.gamesPlayed}`
-      );
-
-      // Award XP and update stats for player 2
-      const p2Xp = awardXp(p2Player, p2Outcome);
-      p2Player.stats = p2Player.stats || {};
-      p2Player.stats.gamesPlayed = (p2Player.stats.gamesPlayed || 0) + 1;
-      p2Player.stats.avgResponseMs = p2.avgResponseMs || 0;
-      if (p2Outcome === "win") {
-        p2Player.stats.wins = (p2Player.stats.wins || 0) + 1;
-      }
-      await p2Player.save();
-      console.log(
-        `[GAME RESULT] ✅ P2 After: XP=${p2Player.xp} (+${p2Xp}), Level=${p2Player.level}, Outcome=${p2Outcome}, Wins=${p2Player.stats.wins}, GamesPlayed=${p2Player.stats.gamesPlayed}`
-      );
-
-      // Mark session as finalized to prevent double-awarding
-      session.statsFinalized = true;
-      await session.save();
-      console.log(`[GAME RESULT] 🔒 Session marked as finalized`);
-    } else if (session.statsFinalized) {
-      console.log(
-        `[GAME RESULT] ⏭️ Stats already finalized for session ${sessionId}, skipping`
-      );
-    } else if (
-      session.status === "completed" &&
-      session.statsUpdated &&
-      session.statsUpdated.length > 0
-    ) {
-      console.log(
-        `[GAME RESULT] ⚠️ Partial stats updates detected for session ${sessionId}, skipping server-side bulk awarding`
-      );
-    }
-
+    // Build result payload first to return quickly
     const yourId = String(req.user.id);
     const youOutcome = yourId === p1Id ? p1Outcome : p2Outcome;
 
@@ -268,16 +197,7 @@ router.get("/result/:sessionId", auth, async (req, res) => {
     const p1PlayerData = await Player.findById(p1Id).lean();
     const p2PlayerData = await Player.findById(p2Id).lean();
 
-    console.log(
-      "[GAME RESULT] 📤 Sending result to client: P1Outcome=",
-      p1Outcome,
-      "P2Outcome=",
-      p2Outcome,
-      "YourOutcome=",
-      youOutcome
-    );
-
-    return res.json({
+    const payload = {
       sessionId: session._id,
       status: session.status,
       totalQuestions: session.questions ? session.questions.length : 0,
@@ -303,7 +223,58 @@ router.get("/result/:sessionId", auth, async (req, res) => {
         outcome: p2Outcome,
       },
       outcome: youOutcome,
-    });
+    };
+
+    // Defer XP/gamesPlayed awarding to after sending response for faster result
+    if (
+      session.status === "completed" &&
+      !session.statsFinalized &&
+      (!session.statsUpdated || session.statsUpdated.length === 0)
+    ) {
+      setImmediate(async () => {
+        try {
+          // Re-check session state to avoid race with client-side updates
+          const freshSession = await Session.findById(sessionId).lean();
+          if (
+            !freshSession ||
+            freshSession.statsFinalized ||
+            (freshSession.statsUpdated && freshSession.statsUpdated.length > 0)
+          ) {
+            return;
+          }
+      
+          const p1Player = await Player.findById(p1Id);
+          const p2Player = await Player.findById(p2Id);
+      
+          const p1Xp = awardXp(p1Player, p1Outcome);
+          p1Player.stats = p1Player.stats || {};
+          p1Player.stats.gamesPlayed = (p1Player.stats.gamesPlayed || 0) + 1;
+          p1Player.stats.avgResponseMs = p1.avgResponseMs || 0;
+          if (p1Outcome === "win") {
+            p1Player.stats.wins = (p1Player.stats.wins || 0) + 1;
+          }
+          await p1Player.save();
+      
+          const p2Xp = awardXp(p2Player, p2Outcome);
+          p2Player.stats = p2Player.stats || {};
+          p2Player.stats.gamesPlayed = (p2Player.stats.gamesPlayed || 0) + 1;
+          p2Player.stats.avgResponseMs = p2.avgResponseMs || 0;
+          if (p2Outcome === "win") {
+            p2Player.stats.wins = (p2Player.stats.wins || 0) + 1;
+          }
+          await p2Player.save();
+      
+          await Session.updateOne(
+            { _id: sessionId },
+            { $set: { statsFinalized: true } }
+          );
+        } catch (bgErr) {
+          console.error("[GAME RESULT] Background awarding failed:", bgErr);
+        }
+      });
+    }
+
+    return res.json(payload);
   } catch (err) {
     console.error("Get result error:", err);
     return res.status(500).json({ error: "Internal server error" });
